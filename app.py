@@ -4,32 +4,38 @@ from datetime import datetime
 
 app = Flask(__name__)
 
-# Your PickMyTrade Webhook URL
+# PickMyTrade Webhook URL
 PICKMYTRADE_WEBHOOK_URL = "https://pickmytrade.trade/webhook"
 
-# Your PickMyTrade API Token (Replace this with your actual token)
+# Your PickMyTrade API Token
 PICKMYTRADE_API_TOKEN = "Ct8tPtD345345t3fty2EtYtCtVtVtUtL"
 
 @app.route('/trade', methods=['POST'])
 def trade():
-    data = request.json
-    if not data:
-        return jsonify({"error": "Invalid data"}), 400
-    
-    # Extract TradingView alert details
-    symbol = data.get("symbol")
-    action = data.get("action")  # 'buy' or 'sell'
-    quantity = str(data.get("quantity", 1))  # Convert to string if needed
-    price = str(data.get("price", "0"))  # Closing price or market order
-    
-    # Construct PickMyTrade payload
+    data = request.json  # Get data from TradingView
+
+    if not data or "message" not in data:
+        return jsonify({"error": "Invalid alert format"}), 400
+
+    # Extract TradingView alert message
+    alert_message = data["message"].strip().upper()  # Example: "BUY ES"
+
+    # Split message to get action and symbol
+    parts = alert_message.split(" ")
+    if len(parts) < 2:
+        return jsonify({"error": "Invalid alert format"}), 400
+
+    action = parts[0].lower()  # "BUY" or "SELL"
+    symbol = parts[1]  # Example: "ES"
+
+    # Generate the PickMyTrade JSON payload
     pickmytrade_payload = {
         "symbol": symbol,
         "date": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
-        "data": action.lower(),  # 'buy' or 'sell'
-        "quantity": quantity,
+        "data": action,
+        "quantity": "1",
         "risk_percentage": "0",
-        "price": price,
+        "price": "0",  # Market order
         "tp": "0",
         "percentage_tp": "0",
         "dollar_tp": "2",
@@ -47,7 +53,7 @@ def trade():
         "reverse_order_close": "true",
         "multiple_accounts": [
             {
-                "token": "FtOtTt4345345tHkjhhiutTtUtAt1t8tTtDtG",  # Replace with actual token
+                "token": "FtOtTt4345345tHkjhhiutTtUtAt1t8tTtDtG",
                 "account_id": "2",
                 "risk_percentage": 2,
                 "quantity_multiplier": 0
@@ -55,7 +61,7 @@ def trade():
         ]
     }
 
-    # Send request to PickMyTrade
+    # Send the order to PickMyTrade
     response = requests.post(PICKMYTRADE_WEBHOOK_URL, json=pickmytrade_payload)
 
     return response.json()
